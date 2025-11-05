@@ -50,6 +50,17 @@ public class Position extends Message {
     public static final String KEY_VIDEO = "video";
     public static final String KEY_AUDIO = "audio";
 
+    //
+    public static final String KEY_GSM = "gsmSignal";
+    public static final String KEY_VERSION = "version";
+    public static final String KEY_TECHNOLOGY = "technology";
+    public static final String KEY_RFID = "rfid";
+    public static final String KEY_LAC = "lac";
+    public static final String KEY_CID = "cid";
+
+
+
+
     // The units for the below four KEYs currently vary.
     // The preferred units of measure are specified in the comment for each.
     public static final String KEY_POWER = "power"; // volts
@@ -88,6 +99,7 @@ public class Position extends Message {
     public static final String KEY_COMMAND = "command";
     public static final String KEY_BLOCKED = "blocked";
     public static final String KEY_LOCK = "lock";
+    public static final String KEY_WIRE_TAMPER = "wireTamper";
     public static final String KEY_DOOR = "door";
     public static final String KEY_AXLE_WEIGHT = "axleWeight";
     public static final String KEY_G_SENSOR = "gSensor";
@@ -151,6 +163,29 @@ public class Position extends Message {
     public static final String ALARM_FUEL_LEAK = "fuelLeak";
     public static final String ALARM_TAMPERING = "tampering";
     public static final String ALARM_REMOVING = "removing";
+
+    //
+    public static final String ALARM_COURSE_CHANGE = "courseChange";
+    public static final String ALARM_OVER_SPEED_BEGIN = "overSpeedBegin";
+    public static final String ALARM_OVER_SPEED_END = "overSpeedEnd";
+    public static final String ALARM_LOCATION_TIMEOUT = "locationTimeout";
+    public static final String ALARM_SIGNAL_LOST = "signalLost";
+    public static final String ALARM_SIGNAL_BACK = "signalBack";
+    public static final String ALARM_STOP = "stop";
+    public static final String ALARM_CURRENT_STATUS = "currentStatus";
+    public static final String ALARM_CHARGER_CONNECT = "chargerConnect";
+    public static final String ALARM_CHARGER_DISCONNECT = "chargerDisconnect";
+    public static final String ALARM_BUTTON_PRESSED = "buttonPressed";
+    public static final String ALARM_CONFIGURATION_CHANGE = "configurationChange";
+    public static final String ALARM_LOCKER_UNSEALED = "lockerUnsealed";
+    public static final String ALARM_LOCKER_SEALED = "lockerSealed";
+    public static final String ALARM_TAMPER_OPENING = "tamperOpening";
+    public static final String ALARM_TAMPER_CLOSING = "tamperClosing";
+    public static final String ALARM_IMPACT = "impact";
+    public static final String ALARM_UNAUTHORIZED = "unauthorized";
+    public static final String ALARM_HUMIDITY = "humidity";
+    public static final String ALARM_LOCK_MECHANISM_JAMMED = "lockMechanismJammed";
+    public static final String ALARM_SIM_CARD_PANEL_OPENED = "simCardPanelOpened";
 
     public Position() {
     }

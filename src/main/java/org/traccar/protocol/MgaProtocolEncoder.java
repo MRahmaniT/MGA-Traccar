@@ -27,6 +27,7 @@ public class MgaProtocolEncoder extends StringProtocolEncoder {
         super(protocol);
     }
 
+    /*
     @Override
     protected Object encodeCommand(Command command) {
 
@@ -41,5 +42,6 @@ public class MgaProtocolEncoder extends StringProtocolEncoder {
             default -> null;
         };
     }
+    */
 
 }

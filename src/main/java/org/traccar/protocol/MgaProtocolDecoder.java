@@ -47,9 +47,9 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         // Start of Frame (1 Bytes)
         byte sof = buf.readByte();
         if (sof != (byte) 0xAA) {
-            while (sof != (byte) 0xAA) {
+            for (int i = 1; i <= buf.readableBytes(); i++) {
                 sof = buf.readByte();
-                if (buf.readableBytes() < 1) { // check readableBytes
+                if (buf.readableBytes() < 1 || sof == (byte) 0xAA) {
                     return null;
                 }
             }
@@ -83,6 +83,7 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         // CRC Checksum (2 Bytes)
         int receivedCRC = buf.readUnsignedShort();
         LOGGER.info("received crc: {}", receivedCRC);
+        //TODO: check CRC
 
         // End of Frame (EOF)
         byte eof = buf.readByte();
@@ -139,9 +140,9 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
             // Start of Data (1 Byte)
             byte sod = dataBuf.readByte();
             if (sod != (byte) 0xAF) {
-                while (sod != (byte) 0xAF) {
+                for (int j = 1; j <= buf.readableBytes(); j++) {
                     sod = dataBuf.readByte();
-                    if (dataBuf.readableBytes() < 4) {
+                    if (dataBuf.readableBytes() < 4 || sod == (byte) 0xAF) {
                         break;
                     }
                 }
@@ -166,7 +167,6 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
 
             byte[] data = new byte[dataLength];
             dataBuf.readBytes(data);
-            //LOGGER.info("data: {}", data);
             LOGGER.info("data: {}", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(data)).replaceAll("(.{2})", "$1 "));
 
 

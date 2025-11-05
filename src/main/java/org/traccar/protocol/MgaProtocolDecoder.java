@@ -256,8 +256,41 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
 
             switch (dataType){
                 case (byte) 0x01 : {
-                    System.out.println("test");
-                    //ByteBuf dataBuf = Unpooled.wrappedBuffer(data);
+                    ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
+
+                    // Alarm Code (1 Byte)
+                    int alarmCode = wrappedData.readByte();
+                    LOGGER.info("alarmCode: {}", alarmCode);
+
+                    // Charger Status (1 Byte)
+                    int chargerStatus = wrappedData.readByte();
+                    LOGGER.info("chargerStatus: {}", chargerStatus);
+
+                    // Battery Voltage (2 Bytes)
+                    int batteryVoltage = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
+                    LOGGER.info("batteryVoltage: {}", batteryVoltage);
+
+                    // Wire Tamper (1 Byte)
+                    int wireTamper = wrappedData.readByte();
+                    LOGGER.info("wireTamper: {}", wireTamper);
+
+                    // Lock Status (1 Byte)
+                    int lockStatus = wrappedData.readByte();
+                    LOGGER.info("lockStatus: {}", lockStatus);
+
+                    // GSM Signal (1 Byte)
+                    int gsmSignal = wrappedData.readByte();
+                    LOGGER.info("gsmSignal: {}", gsmSignal);
+
+                    // Version (2 Bytes)
+                    int version = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
+                    LOGGER.info("version: {}", version);
+
+                    // GPS Data (21 Bytes)
+                    int gpsDataSize = 21;
+                    byte[] gpsData = new byte[gpsDataSize];
+                    wrappedData.readBytes(gpsData);
+                    LOGGER.info("gpsData: {}", gpsData);
                 }
             }
         }

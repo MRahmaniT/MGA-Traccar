@@ -256,6 +256,7 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
 
             switch (dataType){
                 case (byte) 0x01 : {
+                    System.out.println("test");
                     //ByteBuf dataBuf = Unpooled.wrappedBuffer(data);
                 }
             }

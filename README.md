@@ -1,2 +1,2 @@
-# MGA-Traccar_New_Protocol
+# MGA-Traccar
 Making a new protocol for Traccar in java.

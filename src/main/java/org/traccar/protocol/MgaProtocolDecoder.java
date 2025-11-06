@@ -200,12 +200,32 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 case 215 : position.addAlarm(Position.ALARM_LOCKER_SEALED);
                 case 216 : position.addAlarm(Position.ALARM_TAMPER_OPENING);
                 case 217 : position.addAlarm(Position.ALARM_TAMPER_CLOSING);
-                case 218 : position.addAlarm(Position.ALARM_IMPACT);
-                case 219 : position.addAlarm(Position.ALARM_UNAUTHORIZED);
-                case 220 : position.addAlarm(Position.ALARM_TEMPERATURE);
+                case 218 : position.addAlarm(Position.ALARM_TEMPERATURE);
+                case 219 : position.addAlarm(Position.ALARM_TEMPERATURE);
+                case 220 : position.addAlarm(Position.ALARM_IMPACT);
                 case 221 : position.addAlarm(Position.ALARM_HUMIDITY);
-                case 222 : position.addAlarm(Position.ALARM_LOCK_MECHANISM_JAMMED);
+                case 222 : position.addAlarm(Position.ALARM_LOW_BATTERY);
                 case 223 : position.addAlarm(Position.ALARM_SIM_CARD_PANEL_OPENED);
+                //TODO: complete alarm
+                /*
+                 else if alarmCode == 223 {
+                    return "TOO MANY WRONG PASSWORDS"
+                } else if alarmCode == 224 {
+                    return "LONG TIME UNLOCKED"
+                } else if alarmCode == 225 {
+                    return "ILLEGAL RFID"
+                } else if alarmCode == 226 {
+                    return "ENTER GEOFENCE"
+                } else if alarmCode == 227 {
+                    return "EXIT GEOFENCE"
+                } else if alarmCode == 228 {
+                    return "BACK COVER OPEN"
+                } else if alarmCode == 229 {
+                    return "TAMPER OPEN REPORT"
+                } else if alarmCode == 230 {
+                    return "TAMPER CLOSED REPORT"
+                }
+                 */
             }
 
             // Charger Status (1 Byte)

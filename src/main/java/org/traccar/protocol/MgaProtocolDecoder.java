@@ -177,282 +177,333 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
             }
             LOGGER.info("eod: {}", eod);
 
-            ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
+            if (dataType == (byte) 0x01) {
+                ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
 
-            // Alarm Code (1 Byte)
-            int alarmCode = wrappedData.readUnsignedByte();
-            LOGGER.info("alarmCode: {}", alarmCode);
-            switch (alarmCode){
-                case 201 : position.addAlarm(Position.ALARM_COURSE_CHANGE);
-                case 202 : position.addAlarm(Position.ALARM_OVER_SPEED_BEGIN);
-                case 203 : position.addAlarm(Position.ALARM_OVER_SPEED_END);
-                case 204 : position.addAlarm(Position.ALARM_LOCATION_TIMEOUT);
-                case 205 : position.addAlarm(Position.ALARM_SIGNAL_LOST);
-                case 206 : position.addAlarm(Position.ALARM_SIGNAL_BACK);
-                case 207 : position.addAlarm(Position.ALARM_STOP);
-                case 208 : position.addAlarm(Position.ALARM_MOVEMENT);
-                case 209 : position.addAlarm(Position.ALARM_CURRENT_STATUS);
-                case 210 : position.addAlarm(Position.ALARM_CHARGER_CONNECT);
-                case 211 : position.addAlarm(Position.ALARM_CHARGER_DISCONNECT);
-                case 212 : position.addAlarm(Position.ALARM_BUTTON_PRESSED);
-                case 213 : position.addAlarm(Position.ALARM_CONFIGURATION_CHANGE);
-                case 214 : position.addAlarm(Position.ALARM_LOCKER_UNSEALED);
-                case 215 : position.addAlarm(Position.ALARM_LOCKER_SEALED);
-                case 216 : position.addAlarm(Position.ALARM_TAMPER_OPENING);
-                case 217 : position.addAlarm(Position.ALARM_TAMPER_CLOSING);
-                case 218 : position.addAlarm(Position.ALARM_TEMPERATURE);
-                case 219 : position.addAlarm(Position.ALARM_TEMPERATURE);
-                case 220 : position.addAlarm(Position.ALARM_IMPACT);
-                case 221 : position.addAlarm(Position.ALARM_HUMIDITY);
-                case 222 : position.addAlarm(Position.ALARM_LOW_BATTERY);
-                case 223 : position.addAlarm(Position.ALARM_SIM_CARD_PANEL_OPENED);
-                //TODO: complete alarm
-                /*
-                 else if alarmCode == 223 {
-                    return "TOO MANY WRONG PASSWORDS"
-                } else if alarmCode == 224 {
-                    return "LONG TIME UNLOCKED"
-                } else if alarmCode == 225 {
-                    return "ILLEGAL RFID"
-                } else if alarmCode == 226 {
-                    return "ENTER GEOFENCE"
-                } else if alarmCode == 227 {
-                    return "EXIT GEOFENCE"
-                } else if alarmCode == 228 {
-                    return "BACK COVER OPEN"
-                } else if alarmCode == 229 {
-                    return "TAMPER OPEN REPORT"
-                } else if alarmCode == 230 {
-                    return "TAMPER CLOSED REPORT"
-                }
-                 */
-            }
+                // Alarm Code (1 Byte)
+                int alarmCode = wrappedData.readUnsignedByte();
+                LOGGER.info("alarmCode: {}", alarmCode);
+                findAlarm(alarmCode, position);
 
-            // Charger Status (1 Byte)
-            int chargerStatus = wrappedData.readByte();
-            LOGGER.info("chargerStatus: {}", chargerStatus);
-            position.set(Position.KEY_CHARGE, chargerStatus);
+                // Charger Status (1 Byte)
+                int chargerStatus = wrappedData.readByte();
+                LOGGER.info("chargerStatus: {}", chargerStatus);
+                position.set(Position.KEY_CHARGE, chargerStatus);
 
-            // Battery Voltage (2 Bytes)
-            double batteryVoltage = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 1000;
-            LOGGER.info("batteryVoltage: {}", batteryVoltage);
-            position.set(Position.KEY_BATTERY, batteryVoltage);
+                // Battery Voltage (2 Bytes)
+                int batteryVoltage = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
+                LOGGER.info("batteryVoltage: {}", batteryVoltage);
+                position.set(Position.KEY_BATTERY, batteryVoltage);
 
-            // Version (2 Bytes)
-            double version = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
-            LOGGER.info("version: {}", version);
-            position.set(Position.KEY_VERSION, version);
+                // Wire Tamper (1 Byte)
+                int wireTamper = wrappedData.readByte();
+                LOGGER.info("wireTamper: {}", wireTamper);
+                position.set(Position.KEY_WIRE_TAMPER, 1);
 
-            // Wire Tamper (1 Byte)
-            int wireTamper = wrappedData.readByte();
-            LOGGER.info("wireTamper: {}", wireTamper);
-            position.set(Position.KEY_WIRE_TAMPER, 1);
+                // Lock Status (1 Byte)
+                int lockStatus = wrappedData.readByte();
+                LOGGER.info("lockStatus: {}", lockStatus);
+                position.set(Position.KEY_LOCK, 1);
 
-            // Lock Status (1 Byte)
-            int lockStatus = wrappedData.readByte();
-            LOGGER.info("lockStatus: {}", lockStatus);
-            position.set(Position.KEY_LOCK, 1);
+                // GSM Signal (1 Byte)
+                int gsmSignal = wrappedData.readByte();
+                LOGGER.info("gsmSignal: {}", gsmSignal);
+                position.set(Position.KEY_GSM, gsmSignal);
 
-            // GSM Signal (1 Byte)
-            int gsmSignal = wrappedData.readByte();
-            LOGGER.info("gsmSignal: {}", gsmSignal);
-            position.set(Position.KEY_GSM, gsmSignal);
+                // Version (2 Bytes)
+                int version = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
+                LOGGER.info("version: {}", version);
+                position.set(Position.KEY_VERSION, version);
 
-            // Humidity
-            int humidity = wrappedData.readByte();
-            LOGGER.info("humidity: {}", humidity);
-            position.set(Position.KEY_HUMIDITY, humidity);
+                // Humidity
+                int humidity = wrappedData.readByte();
+                LOGGER.info("humidity: {}", humidity);
+                position.set(Position.KEY_HUMIDITY, humidity);
 
-            // Temperature
-            int temperature = wrappedData.readByte();
-            LOGGER.info("temperature: {}", temperature);
-            position.set(Position.KEY_DEVICE_TEMP, temperature);
+                // Temperature
+                int temperature = wrappedData.readByte();
+                LOGGER.info("temperature: {}", temperature);
+                position.set(Position.KEY_DEVICE_TEMP, temperature);
 
-            // Flags
-            boolean isFixed = false;
-            boolean isStop = false;
-            boolean lacCidValidity = false;
+                // Unix Time (4 Bytes)
+                long unixTime = Integer.reverseBytes(wrappedData.readInt());
+                Date date = new Date(unixTime * 1000L);
+                LOGGER.info("date: {}", date);
+                position.setTime(date);
 
-            int flags = wrappedData.readByte();
-            LOGGER.info("flags: {}", flags);
+                // Latitude (4 Bytes)
+                long lat = Integer.reverseBytes(wrappedData.readInt());
+                double latitude = (double) lat / 1000000;
+                LOGGER.info("latitude: {}", latitude);
+                position.setLatitude(latitude);
 
-            if ((flags & 1) == 1) {
-                isFixed = true;
-            }
-            if (((flags >> 1) & 1) == 1) {
-                isStop = true;
-            }
-            if (((flags >> 2) & 1) == 1) {
-                lacCidValidity = true;
-            }
-            int tech = (flags >> 3) & 0b111;
-            switch (tech) {
-                case 0:
-                    position.set(Position.KEY_TECHNOLOGY, "unknown");
-                    break;
-                case 1:
-                    position.set(Position.KEY_TECHNOLOGY, "2G");
-                    break;
-                case 2:
-                    position.set(Position.KEY_TECHNOLOGY, "3G");
-                    break;
-                case 3:
-                    position.set(Position.KEY_TECHNOLOGY, "4G");
-                    break;
-                case 4:
-                    position.set(Position.KEY_TECHNOLOGY, "5G");
-                    break;
-                default:
-                    position.set(Position.KEY_TECHNOLOGY, "other");
-                    break;
-            }
+                // Longitude (4 Bytes)
+                long lon = Integer.reverseBytes(wrappedData.readInt());
+                double longitude = (double) lon / 1000000;
+                LOGGER.info("longitude: {}", longitude);
+                position.setLongitude(longitude);
 
-            LOGGER.info("isStop: {}", isStop);
-            LOGGER.info("motion: {}", !isStop);
-            position.set(Position.KEY_MOTION, !isStop);
-            switch (dataType){
-                case (byte) 0x01 : {
-                    // LAC (4 Bytes)
-                    long lac = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("lac: {}", lac);
-                    position.set(Position.KEY_LAC, lac);
+                // Bearing (2 Bytes)
+                int bearing = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
+                LOGGER.info("bearing: {}", bearing);
+                position.setCourse(bearing);
 
-                    // CID (4 Bytes)
-                    long cid = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("cid: {}", cid);
-                    position.set(Position.KEY_CID, cid);
+                // Speed (1 Byte)
+                int speed = wrappedData.readByte();
+                LOGGER.info("speed: {}", speed);
+                position.setSpeed(speed * 0.54);
 
-                    // Unix Time (4 Bytes)
-                    long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                    Date date = new Date(unixTime * 1000L);
-                    LOGGER.info("date: {}", date);
-                    position.setDeviceTime(date);
+                // Sat (1 Byte)
+                int sat = wrappedData.readByte();
+                LOGGER.info("sat: {}", sat);
+                position.set(Position.KEY_SATELLITES, sat);
 
-                    // Unix Time (4 Bytes)
-                    long sinceTime = Integer.reverseBytes(wrappedData.readInt());
-                    Date since = new Date(sinceTime * 1000L);
-                    LOGGER.info("since: {}", since);
-                    position.setFixTime(since);
-
-                    // Latitude (4 Bytes)
-                    long lat = Integer.reverseBytes(wrappedData.readInt());
-                    double latitude = (double) lat /1000000;
-                    LOGGER.info("latitude: {}", latitude);
-                    position.setLatitude(latitude);
-
-                    // Longitude (4 Bytes)
-                    long lon = Integer.reverseBytes(wrappedData.readInt());
-                    double longitude = (double) lon / 1000000;
-                    LOGGER.info("longitude: {}", longitude);
-                    position.setLongitude(longitude);
-
-                    // Bearing (2 Bytes)
-                    int bearing = Short.reverseBytes(wrappedData.readShort());
-                    LOGGER.info("bearing: {}", bearing);
-                    position.setCourse(bearing);
-
-                    // Speed (1 Byte)
-                    int speed = wrappedData.readByte();
-                    LOGGER.info("speed: {}", speed);
-                    position.setSpeed(speed*0.54);
-
-                    // Sat (1 Byte)
-                    int sat = wrappedData.readByte();
-                    LOGGER.info("sat: {}", sat);
-                    position.set(Position.KEY_SATELLITES, sat);
-
-                    // Position Dilution Of Precision (2 Bytes)
-                    double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
-                    LOGGER.info("pdop: {}", pdop);
-                    if (pdop < 3) {
-                        position.setValid(true);
-                    }
+                // Position Dilution Of Precision (2 Bytes)
+                double pdop = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
+                LOGGER.info("pdop: {}", pdop);
+                if (pdop < 3) {
+                    position.setValid(true);
                 }
 
-                case (byte) 0x02 : {
-                    // LAC (4 Bytes)
-                    long lac = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("lac: {}", lac);
-                    position.set(Position.KEY_LAC, lac);
+                // Stop (1 Byte)
+                int stop = wrappedData.readByte();
+                LOGGER.info("stop: {}", stop);
+                position.set(Position.KEY_MOTION, stop == 0);
 
-                    // CID (4 Bytes)
-                    long cid = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("cid: {}", cid);
-                    position.set(Position.KEY_CID, cid);
+            } else {
+                ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
 
-                    // Unix Time (4 Bytes)
-                    long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                    Date date = new Date(unixTime * 1000L);
-                    LOGGER.info("date: {}", date);
-                    position.setDeviceTime(date);
+                // Alarm Code (1 Byte)
+                int alarmCode = wrappedData.readUnsignedByte();
+                LOGGER.info("alarmCode: {}", alarmCode);
+                findAlarm(alarmCode, position);
 
-                    // Flags (4 Bytes)
-                    long flag = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("flag: {}", flag);
+                // Charger Status (1 Byte)
+                int chargerStatus = wrappedData.readByte();
+                LOGGER.info("chargerStatus: {}", chargerStatus);
+                position.set(Position.KEY_CHARGE, chargerStatus);
 
+                // Battery Voltage (2 Bytes)
+                double batteryVoltage = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 1000;
+                LOGGER.info("batteryVoltage: {}", batteryVoltage);
+                position.set(Position.KEY_BATTERY, batteryVoltage);
+
+                // Version (2 Bytes)
+                double version = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
+                LOGGER.info("version: {}", version);
+                position.set(Position.KEY_VERSION, version);
+
+                // Wire Tamper (1 Byte)
+                int wireTamper = wrappedData.readByte();
+                LOGGER.info("wireTamper: {}", wireTamper);
+                position.set(Position.KEY_WIRE_TAMPER, 1);
+
+                // Lock Status (1 Byte)
+                int lockStatus = wrappedData.readByte();
+                LOGGER.info("lockStatus: {}", lockStatus);
+                position.set(Position.KEY_LOCK, 1);
+
+                // GSM Signal (1 Byte)
+                int gsmSignal = wrappedData.readByte();
+                LOGGER.info("gsmSignal: {}", gsmSignal);
+                position.set(Position.KEY_GSM, gsmSignal);
+
+                // Humidity
+                int humidity = wrappedData.readByte();
+                LOGGER.info("humidity: {}", humidity);
+                position.set(Position.KEY_HUMIDITY, humidity);
+
+                // Temperature
+                int temperature = wrappedData.readByte();
+                LOGGER.info("temperature: {}", temperature);
+                position.set(Position.KEY_DEVICE_TEMP, temperature);
+
+                // Flags
+                boolean isFixed = false;
+                boolean isStop = false;
+                boolean lacCidValidity = false;
+
+                int flags = wrappedData.readByte();
+                LOGGER.info("flags: {}", flags);
+
+                if ((flags & 1) == 1) {
+                    isFixed = true;
+                }
+                if (((flags >> 1) & 1) == 1) {
+                    isStop = true;
+                }
+                if (((flags >> 2) & 1) == 1) {
+                    lacCidValidity = true;
+                }
+                int tech = (flags >> 3) & 0b111;
+                switch (tech) {
+                    case 0:
+                        position.set(Position.KEY_TECHNOLOGY, "unknown");
+                        break;
+                    case 1:
+                        position.set(Position.KEY_TECHNOLOGY, "2G");
+                        break;
+                    case 2:
+                        position.set(Position.KEY_TECHNOLOGY, "3G");
+                        break;
+                    case 3:
+                        position.set(Position.KEY_TECHNOLOGY, "4G");
+                        break;
+                    case 4:
+                        position.set(Position.KEY_TECHNOLOGY, "5G");
+                        break;
+                    default:
+                        position.set(Position.KEY_TECHNOLOGY, "other");
+                        break;
                 }
 
-                case (byte) 0x03 : {
-                    // LAC (4 Bytes)
-                    long lac = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("lac: {}", lac);
-                    position.set(Position.KEY_LAC, lac);
+                LOGGER.info("isStop: {}", isStop);
+                LOGGER.info("motion: {}", !isStop);
+                position.set(Position.KEY_MOTION, !isStop);
+                switch (dataType) {
+                    case (byte) 0x11: {
+                        // LAC (4 Bytes)
+                        long lac = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("lac: {}", lac);
+                        position.set(Position.KEY_LAC, lac);
 
-                    // CID (4 Bytes)
-                    long cid = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("cid: {}", cid);
-                    position.set(Position.KEY_CID, cid);
+                        // CID (4 Bytes)
+                        long cid = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("cid: {}", cid);
+                        position.set(Position.KEY_CID, cid);
 
-                    // Unix Time (4 Bytes)
-                    long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                    Date date = new Date(unixTime * 1000L);
-                    LOGGER.info("date: {}", date);
-                    position.setDeviceTime(date);
+                        // Unix Time (4 Bytes)
+                        long unixTime = Integer.reverseBytes(wrappedData.readInt());
+                        Date date = new Date(unixTime * 1000L);
+                        LOGGER.info("date: {}", date);
+                        position.setDeviceTime(date);
 
-                    // Unix Time (4 Bytes)
-                    long sinceTime = Integer.reverseBytes(wrappedData.readInt());
-                    Date since = new Date(sinceTime * 1000L);
-                    LOGGER.info("since: {}", since);
-                    position.setFixTime(since);
+                        // Unix Time (4 Bytes)
+                        long sinceTime = Integer.reverseBytes(wrappedData.readInt());
+                        Date since = new Date(sinceTime * 1000L);
+                        LOGGER.info("since: {}", since);
+                        position.setFixTime(since);
 
-                    // Latitude (4 Bytes)
-                    long lat = Integer.reverseBytes(wrappedData.readInt());
-                    double latitude = (double) lat /1000000;
-                    LOGGER.info("latitude: {}", latitude);
-                    position.setLatitude(latitude);
+                        // Latitude (4 Bytes)
+                        long lat = Integer.reverseBytes(wrappedData.readInt());
+                        double latitude = (double) lat / 1000000;
+                        LOGGER.info("latitude: {}", latitude);
+                        position.setLatitude(latitude);
 
-                    // Longitude (4 Bytes)
-                    long lon = Integer.reverseBytes(wrappedData.readInt());
-                    double longitude = (double) lon / 1000000;
-                    LOGGER.info("longitude: {}", longitude);
-                    position.setLongitude(longitude);
+                        // Longitude (4 Bytes)
+                        long lon = Integer.reverseBytes(wrappedData.readInt());
+                        double longitude = (double) lon / 1000000;
+                        LOGGER.info("longitude: {}", longitude);
+                        position.setLongitude(longitude);
 
-                    // Bearing (2 Bytes)
-                    int bearing = Short.reverseBytes(wrappedData.readShort());
-                    LOGGER.info("bearing: {}", bearing);
-                    position.setCourse(bearing);
+                        // Bearing (2 Bytes)
+                        int bearing = Short.reverseBytes(wrappedData.readShort());
+                        LOGGER.info("bearing: {}", bearing);
+                        position.setCourse(bearing);
 
-                    // Speed (1 Byte)
-                    int speed = wrappedData.readByte();
-                    LOGGER.info("speed: {}", speed);
-                    position.setSpeed(speed*0.54);
+                        // Speed (1 Byte)
+                        int speed = wrappedData.readByte();
+                        LOGGER.info("speed: {}", speed);
+                        position.setSpeed(speed * 0.54);
 
-                    // Sat (1 Byte)
-                    int sat = wrappedData.readByte();
-                    LOGGER.info("sat: {}", sat);
-                    position.set(Position.KEY_SATELLITES, sat);
+                        // Sat (1 Byte)
+                        int sat = wrappedData.readByte();
+                        LOGGER.info("sat: {}", sat);
+                        position.set(Position.KEY_SATELLITES, sat);
 
-                    // Position Dilution Of Precision (2 Bytes)
-                    double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
-                    LOGGER.info("pdop: {}", pdop);
-                    if (pdop < 3) {
-                        position.setValid(true);
+                        // Position Dilution Of Precision (2 Bytes)
+                        double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
+                        LOGGER.info("pdop: {}", pdop);
+                        if (pdop < 3) {
+                            position.setValid(true);
+                        }
                     }
 
-                    // Illegal RFID Number
-                    long rfid = Integer.reverseBytes(wrappedData.readInt());
-                    LOGGER.info("rfid: {}", rfid);
-                    position.set(Position.KEY_RFID, rfid);
+                    case (byte) 0x02: {
+                        // LAC (4 Bytes)
+                        long lac = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("lac: {}", lac);
+                        position.set(Position.KEY_LAC, lac);
+
+                        // CID (4 Bytes)
+                        long cid = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("cid: {}", cid);
+                        position.set(Position.KEY_CID, cid);
+
+                        // Unix Time (4 Bytes)
+                        long unixTime = Integer.reverseBytes(wrappedData.readInt());
+                        Date date = new Date(unixTime * 1000L);
+                        LOGGER.info("date: {}", date);
+                        position.setDeviceTime(date);
+
+                        // Flags (4 Bytes)
+                        long flag = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("flag: {}", flag);
+
+                    }
+
+                    case (byte) 0x03: {
+                        // LAC (4 Bytes)
+                        long lac = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("lac: {}", lac);
+                        position.set(Position.KEY_LAC, lac);
+
+                        // CID (4 Bytes)
+                        long cid = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("cid: {}", cid);
+                        position.set(Position.KEY_CID, cid);
+
+                        // Unix Time (4 Bytes)
+                        long unixTime = Integer.reverseBytes(wrappedData.readInt());
+                        Date date = new Date(unixTime * 1000L);
+                        LOGGER.info("date: {}", date);
+                        position.setDeviceTime(date);
+
+                        // Unix Time (4 Bytes)
+                        long sinceTime = Integer.reverseBytes(wrappedData.readInt());
+                        Date since = new Date(sinceTime * 1000L);
+                        LOGGER.info("since: {}", since);
+                        position.setFixTime(since);
+
+                        // Latitude (4 Bytes)
+                        long lat = Integer.reverseBytes(wrappedData.readInt());
+                        double latitude = (double) lat / 1000000;
+                        LOGGER.info("latitude: {}", latitude);
+                        position.setLatitude(latitude);
+
+                        // Longitude (4 Bytes)
+                        long lon = Integer.reverseBytes(wrappedData.readInt());
+                        double longitude = (double) lon / 1000000;
+                        LOGGER.info("longitude: {}", longitude);
+                        position.setLongitude(longitude);
+
+                        // Bearing (2 Bytes)
+                        int bearing = Short.reverseBytes(wrappedData.readShort());
+                        LOGGER.info("bearing: {}", bearing);
+                        position.setCourse(bearing);
+
+                        // Speed (1 Byte)
+                        int speed = wrappedData.readByte();
+                        LOGGER.info("speed: {}", speed);
+                        position.setSpeed(speed * 0.54);
+
+                        // Sat (1 Byte)
+                        int sat = wrappedData.readByte();
+                        LOGGER.info("sat: {}", sat);
+                        position.set(Position.KEY_SATELLITES, sat);
+
+                        // Position Dilution Of Precision (2 Bytes)
+                        double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
+                        LOGGER.info("pdop: {}", pdop);
+                        if (pdop < 3) {
+                            position.setValid(true);
+                        }
+
+                        // Illegal RFID Number
+                        long rfid = Integer.reverseBytes(wrappedData.readInt());
+                        LOGGER.info("rfid: {}", rfid);
+                        position.set(Position.KEY_RFID, rfid);
+                    }
                 }
             }
 
@@ -461,6 +512,103 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         }
 
         return positions;
+    }
+    private void findAlarm (int alarmCode, Position position) {
+        switch (alarmCode) {
+            case 201:
+                position.addAlarm(Position.ALARM_COURSE_CHANGE);
+                break;
+            case 202:
+                position.addAlarm(Position.ALARM_OVER_SPEED_BEGIN);
+                break;
+            case 203:
+                position.addAlarm(Position.ALARM_OVER_SPEED_END);
+                break;
+            case 204:
+                position.addAlarm(Position.ALARM_LOCATION_TIMEOUT);
+                break;
+            case 205:
+                position.addAlarm(Position.ALARM_SIGNAL_LOST);
+                break;
+            case 206:
+                position.addAlarm(Position.ALARM_SIGNAL_BACK);
+                break;
+            case 207:
+                position.addAlarm(Position.ALARM_STOP);
+                break;
+            case 208:
+                position.addAlarm(Position.ALARM_MOVEMENT);
+                break;
+            case 209:
+                position.addAlarm(Position.ALARM_CURRENT_STATUS);
+                break;
+            case 210:
+                position.addAlarm(Position.ALARM_CHARGER_CONNECT);
+                break;
+            case 211:
+                position.addAlarm(Position.ALARM_CHARGER_DISCONNECT);
+                break;
+            case 212:
+                position.addAlarm(Position.ALARM_BUTTON_PRESSED);
+                break;
+            case 213:
+                position.addAlarm(Position.ALARM_CONFIGURATION_CHANGE);
+                break;
+            case 214:
+                position.addAlarm(Position.ALARM_LOCKER_UNSEALED);
+                break;
+            case 215:
+                position.addAlarm(Position.ALARM_LOCKER_SEALED);
+                break;
+            case 216:
+                position.addAlarm(Position.ALARM_TAMPER_OPENING);
+                break;
+            case 217:
+                position.addAlarm(Position.ALARM_TAMPER_CLOSING);
+                break;
+            case 218:
+                position.addAlarm(Position.ALARM_TEMPERATURE);
+                break;
+            case 219:
+                position.addAlarm(Position.ALARM_TEMPERATURE);
+                break;
+            case 220:
+                position.addAlarm(Position.ALARM_IMPACT);
+                break;
+            case 221:
+                position.addAlarm(Position.ALARM_HUMIDITY);
+                break;
+            case 222:
+                position.addAlarm(Position.ALARM_LOW_BATTERY);
+                break;
+            case 223:
+                position.addAlarm(Position.ALARM_WRONG_PASSWORD);
+                break;
+            case 224:
+                position.addAlarm(Position.ALARM_LONG_TIME_UNLOCKED);
+                break;
+            case 225:
+                position.addAlarm(Position.ALARM_ILLEGAL_RFID);
+                break;
+            case 226:
+                position.addAlarm(Position.ALARM_GEOFENCE_ENTER);
+                break;
+            case 227:
+                position.addAlarm(Position.ALARM_GEOFENCE_EXIT);
+                break;
+            case 228:
+                position.addAlarm(Position.ALARM_BACK_COVER_OPEN);
+                break;
+            case 229:
+                position.addAlarm(Position.ALARM_TAMPER_OPENING);
+                break;
+            case 230:
+                position.addAlarm(Position.ALARM_TAMPER_CLOSING);
+                break;
+            default:
+                position.addAlarm(Position.ALARM_UNKNOWN);
+                break;
+        }
     }
 
 }

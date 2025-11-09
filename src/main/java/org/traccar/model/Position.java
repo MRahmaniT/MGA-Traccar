@@ -19,6 +19,7 @@ import java.util.Date;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.kafka.common.protocol.types.Field;
 import org.traccar.storage.QueryIgnore;
 import org.traccar.storage.StorageName;
 
@@ -186,6 +187,11 @@ public class Position extends Message {
     public static final String ALARM_HUMIDITY = "humidity";
     public static final String ALARM_LOCK_MECHANISM_JAMMED = "lockMechanismJammed";
     public static final String ALARM_SIM_CARD_PANEL_OPENED = "simCardPanelOpened";
+    public static final String ALARM_WRONG_PASSWORD = "wrongPassword";
+    public static final String ALARM_LONG_TIME_UNLOCKED = "longTimeUnlocked";
+    public static final String ALARM_ILLEGAL_RFID = "illegalRFID";
+    public static final String ALARM_BACK_COVER_OPEN = "backCoverOpen";
+    public static final String ALARM_UNKNOWN = "unknown";
 
     public Position() {
     }

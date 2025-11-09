@@ -22,7 +22,6 @@ public class MgaProtocol extends BaseProtocol {
         addServer(new TrackerServer(config, getName(), false) {
             @Override
             protected void addProtocolHandlers(PipelineBuilder pipeline, Config config) {
-                //pipeline.addLast(new MgaFrameDecoder());
                 pipeline.addLast(new StringEncoder());
                 pipeline.addLast(new MgaProtocolEncoder(MgaProtocol.this));
                 pipeline.addLast(new MgaProtocolDecoder(MgaProtocol.this));

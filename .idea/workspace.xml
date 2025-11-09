@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="fd51dd83-9e5f-4c75-af5f-603909b46fec" name="Changes" comment="final">
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/traccar/protocol/MgaProtocolDecoder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/traccar/protocol/MgaProtocolDecoder.java" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,7 +28,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-        <entry key="$PROJECT_DIR$" value="master" />
+        <entry key="$PROJECT_DIR$" value="main" />
         <entry key="$PROJECT_DIR$/MGA-Traccar_New_Protocol" value="main" />
       </map>
     </option>
@@ -62,7 +62,7 @@
     "Gradle.traccar [:org.traccar.Main.main()].executor": "Run",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "git-widget-placeholder": "main",
+    "git-widget-placeholder": "target",
     "kotlin-language-version-configured": "true",
     "last_opened_file_path": "/Users/mohammad/Work_MGA/traccar"
   }
@@ -174,7 +174,23 @@
       <option name="project" value="LOCAL" />
       <updated>1762665075015</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="final">
+      <option name="closed" value="true" />
+      <created>1762665167401</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1762665167401</updated>
+    </task>
+    <task id="LOCAL-00013" summary="final">
+      <option name="closed" value="true" />
+      <created>1762665210324</created>
+      <option name="number" value="00013" />
+      <option name="presentableId" value="LOCAL-00013" />
+      <option name="project" value="LOCAL" />
+      <updated>1762665210324</updated>
+    </task>
+    <option name="localTasksCounter" value="14" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">

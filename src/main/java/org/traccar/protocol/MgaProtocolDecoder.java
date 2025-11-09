@@ -278,35 +278,106 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 LOGGER.info("alarmCode: {}", alarmCode);
                 findAlarm(alarmCode, position);
 
-                // Charger Status (1 Byte)
-                int chargerStatus = wrappedData.readByte();
-                LOGGER.info("chargerStatus: {}", chargerStatus);
-                position.set(Position.KEY_CHARGE, chargerStatus);
+                // Flags P1
+                int flags1 = wrappedData.readByte();
+                LOGGER.info("flags P1: {}", flags1);
+
+                // Tech(unregistered, unknown, 2g, 3g, 4g, 5g, other)
+                int tech = flags1 & 0b00000111;
+                switch (tech) {
+                    case 0:
+                        position.set(Position.KEY_TECHNOLOGY, "unregistered");
+                        break;
+                    case 1:
+                        position.set(Position.KEY_TECHNOLOGY, "unknown");
+                        break;
+                    case 2:
+                        position.set(Position.KEY_TECHNOLOGY, "2G");
+                        break;
+                    case 3:
+                        position.set(Position.KEY_TECHNOLOGY, "3G");
+                        break;
+                    case 4:
+                        position.set(Position.KEY_TECHNOLOGY, "4G");
+                        break;
+                    case 5:
+                        position.set(Position.KEY_TECHNOLOGY, "5G");
+                        break;
+                    default:
+                        position.set(Position.KEY_TECHNOLOGY, "other");
+                        break;
+                }
+                LOGGER.info("Tceh: {}", Position.KEY_TECHNOLOGY);
+
+                // Res
+                boolean res;
+                res = (flags1 & 0b00001000) != 0;
+                LOGGER.info("Res: {}", res);
+
+                // Charger Status
+                boolean isCharging;
+                isCharging = (flags1 & 0b00010000) != 0;
+                LOGGER.info("isCharging: {}", isCharging);
+                position.set(Position.KEY_CHARGE, isCharging);
+
+                // Fix
+                boolean isFixed;
+                isFixed = (flags1 & 0b00100000) != 0;
+                LOGGER.info("isFixed: {}", isFixed);
+
+                // Stop
+                boolean isStop;
+                isStop = (flags1 & 0b01000000) != 0;
+                position.set(Position.KEY_MOTION, !isStop);
+                LOGGER.info("isStop: {}", isStop);
+
+                // LAC CID Validity
+                boolean lacCidValidity;
+                lacCidValidity = (flags1 & 0b10000000) != 0;
+                LOGGER.info("lacCidValidity: {}", lacCidValidity);
+
+                // Flags P2
+                int flags2 = wrappedData.readByte();
+                LOGGER.info("flags: {}", flags1);
+
+                // Is Unlock Allowed
+                boolean isUnlockAllowed;
+                isUnlockAllowed = (flags1 & 0b00000001) != 0;
+                position.set(Position.KEY_LOCK, isUnlockAllowed);
+                LOGGER.info("isUnlockAllowed: {}", isUnlockAllowed);
+
+                // IS Rope Closed
+                boolean isRopeClosed;
+                isRopeClosed = (flags1 & 0b00000010) != 0;
+                position.set(Position.KEY_WIRE_TAMPER, isRopeClosed);
+                LOGGER.info("isRopeClose: {}", isRopeClosed);
+
+                // IS Mechanic Closed
+                boolean isMechanicClosed;
+                isMechanicClosed = (flags1 & 0b00000100) != 0;
+                //position.set(Position.KEY_WIRE_TAMPER, isMechanicClosed);
+                LOGGER.info("isMechanicClosed: {}", isMechanicClosed);
+
+                // Is Coil Open
+                boolean isCoilOpen;
+                isCoilOpen = (flags1 & 0b00001000) != 0;
+                //position.set(Position.KEY_WIRE_TAMPER, isMechanicClosed);
+                LOGGER.info("isCoilOpen: {}", isCoilOpen);
+
+                // GSM Signal (1 Byte)
+                int gsmSignal = wrappedData.readByte();
+                position.set(Position.KEY_GSM, gsmSignal);
+                LOGGER.info("gsmSignal: {}", gsmSignal);
+
+                // Version (2 Bytes) --> CRC
+                double version = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
+                position.set(Position.KEY_VERSION, version);
+                LOGGER.info("version: {}", version);
 
                 // Battery Voltage (2 Bytes)
                 double batteryVoltage = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 1000;
                 LOGGER.info("batteryVoltage: {}", batteryVoltage);
                 position.set(Position.KEY_BATTERY, batteryVoltage);
-
-                // Version (2 Bytes)
-                double version = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
-                LOGGER.info("version: {}", version);
-                position.set(Position.KEY_VERSION, version);
-
-                // Wire Tamper (1 Byte)
-                int wireTamper = wrappedData.readByte();
-                LOGGER.info("wireTamper: {}", wireTamper);
-                position.set(Position.KEY_WIRE_TAMPER, 1);
-
-                // Lock Status (1 Byte)
-                int lockStatus = wrappedData.readByte();
-                LOGGER.info("lockStatus: {}", lockStatus);
-                position.set(Position.KEY_LOCK, 1);
-
-                // GSM Signal (1 Byte)
-                int gsmSignal = wrappedData.readByte();
-                LOGGER.info("gsmSignal: {}", gsmSignal);
-                position.set(Position.KEY_GSM, gsmSignal);
 
                 // Humidity
                 int humidity = wrappedData.readByte();
@@ -318,52 +389,10 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 LOGGER.info("temperature: {}", temperature);
                 position.set(Position.KEY_DEVICE_TEMP, temperature);
 
-                // Flags
-                boolean isFixed = false;
-                boolean isStop = false;
-                boolean lacCidValidity = false;
-
-                int flags = wrappedData.readByte();
-                LOGGER.info("flags: {}", flags);
-
-                if ((flags & 1) == 1) {
-                    isFixed = true;
-                }
-                if (((flags >> 1) & 1) == 1) {
-                    isStop = true;
-                }
-                if (((flags >> 2) & 1) == 1) {
-                    lacCidValidity = true;
-                }
-                int tech = (flags >> 3) & 0b111;
-                switch (tech) {
-                    case 0:
-                        position.set(Position.KEY_TECHNOLOGY, "unknown");
-                        break;
-                    case 1:
-                        position.set(Position.KEY_TECHNOLOGY, "2G");
-                        break;
-                    case 2:
-                        position.set(Position.KEY_TECHNOLOGY, "3G");
-                        break;
-                    case 3:
-                        position.set(Position.KEY_TECHNOLOGY, "4G");
-                        break;
-                    case 4:
-                        position.set(Position.KEY_TECHNOLOGY, "5G");
-                        break;
-                    default:
-                        position.set(Position.KEY_TECHNOLOGY, "other");
-                        break;
-                }
-
-                LOGGER.info("isStop: {}", isStop);
-                LOGGER.info("motion: {}", !isStop);
-                position.set(Position.KEY_MOTION, !isStop);
                 switch (dataType) {
                     case (byte) 0x11: {
-                        // LAC (4 Bytes)
-                        long lac = Integer.reverseBytes(wrappedData.readInt());
+                        // LAC (2 Bytes)
+                        long lac = Short.reverseBytes(wrappedData.readShort());
                         LOGGER.info("lac: {}", lac);
                         position.set(Position.KEY_LAC, lac);
 
@@ -401,22 +430,22 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                         LOGGER.info("bearing: {}", bearing);
                         position.setCourse(bearing);
 
-                        // Speed (1 Byte)
-                        int speed = wrappedData.readByte();
-                        LOGGER.info("speed: {}", speed);
-                        position.setSpeed(speed * 0.54);
-
-                        // Sat (1 Byte)
-                        int sat = wrappedData.readByte();
-                        LOGGER.info("sat: {}", sat);
-                        position.set(Position.KEY_SATELLITES, sat);
-
                         // Position Dilution Of Precision (2 Bytes)
                         double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
                         LOGGER.info("pdop: {}", pdop);
                         if (pdop < 3) {
                             position.setValid(true);
                         }
+
+                        // Sat (1 Byte)
+                        int sat = wrappedData.readByte();
+                        LOGGER.info("sat: {}", sat);
+                        position.set(Position.KEY_SATELLITES, sat);
+
+                        // Speed (1 Byte)
+                        int speed = wrappedData.readByte();
+                        LOGGER.info("speed: {}", speed);
+                        position.setSpeed(speed * 0.54);
                     }
 
                     case (byte) 0x02: {

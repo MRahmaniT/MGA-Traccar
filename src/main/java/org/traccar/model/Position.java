@@ -19,7 +19,6 @@ import java.util.Date;
 import java.util.List;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import org.apache.kafka.common.protocol.types.Field;
 import org.traccar.storage.QueryIgnore;
 import org.traccar.storage.StorageName;
 
@@ -51,13 +50,29 @@ public class Position extends Message {
     public static final String KEY_VIDEO = "video";
     public static final String KEY_AUDIO = "audio";
 
-    //
+    //For Mga
     public static final String KEY_GSM = "gsmSignal";
-    public static final String KEY_VERSION = "version";
     public static final String KEY_TECHNOLOGY = "technology";
     public static final String KEY_RFID = "rfid";
     public static final String KEY_LAC = "lac";
     public static final String KEY_CID = "cid";
+    public static final String KEY_SIM_SLOT = "simSlot";
+    public static final String KEY_MECHANIC_CLOSE = "mechanicClose";
+    public static final String KEY_COIL_OPEN = "coilOpen";
+    public static final String KEY_FLAG_1 = "flag1";
+    public static final String KEY_LAC_1 = "lac1";
+    public static final String KEY_CID_1 = "cid1";
+    public static final String KEY_FLAG_2 = "flag2";
+    public static final String KEY_LAC_2 = "lac2";
+    public static final String KEY_CID_2 = "cid2";
+    public static final String KEY_FLAG_3 = "flag3";
+    public static final String KEY_LAC_3 = "lac3";
+    public static final String KEY_CID_3 = "cid3";
+    public static final String KEY_FLAG_4 = "flag4";
+    public static final String KEY_LAC_4 = "lac4";
+    public static final String KEY_CID_4 = "cid4";
+    public static final String KEY_GEOFENCES = "geofences";
+
 
 
 

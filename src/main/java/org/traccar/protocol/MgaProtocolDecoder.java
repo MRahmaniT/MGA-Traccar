@@ -1,7 +1,6 @@
 package org.traccar.protocol;
 
 import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import org.slf4j.Logger;
@@ -12,7 +11,16 @@ import org.traccar.session.DeviceSession;
 import org.traccar.Protocol;
 import org.traccar.model.Position;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.net.SocketAddress;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,7 +41,7 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         return decodeBinary(buf, channel, remoteAddress);
     }
 
-    private List<Position> decodeBinary(ByteBuf buf, Channel channel, SocketAddress remoteAddress) {
+    private List<Position> decodeBinary(ByteBuf buf, Channel channel, SocketAddress remoteAddress) throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidAlgorithmParameterException, InvalidKeyException {
 
         List<Position> positions = new LinkedList<>();
 
@@ -42,9 +50,9 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         }
         //*******************************Frame*******************************
 
-        LOGGER.info("Packet Received, starting decode:");
-        LOGGER.info("Remaining bytes: {}", buf.readableBytes());
-        // Start of Frame (1 Bytes)
+        LOGGER.info("~~ Received {}Bytes --- Starting Decode ~~", buf.readableBytes());
+
+        /* Search for the Start of Frame (1 Byte) */
         byte sof = buf.readByte();
         if (sof != (byte) 0xAA) {
             for (int i = 1; i <= buf.readableBytes(); i++) {
@@ -54,90 +62,118 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 }
             }
         }
-        LOGGER.info("sof: {}", sof);
 
-        // Length (2 Bytes)
+        /* Extract Expected Length (2 Bytes) */
         int length = Short.reverseBytes(buf.readShort()) & 0xFFFF;
-        LOGGER.info("length: {}", length);
-        LOGGER.info("Remaining bytes: {}", buf.readableBytes());
+
+        LOGGER.info("SOF: {} | EXPECTED LEN: {}B | RECEIVED LEN: {}B", sof, length+1, buf.readableBytes());
         if (buf.readableBytes() < length + 1) {
+            LOGGER.info("ERROR: Expected len {}B LESS THAN received len {}B", length+1, buf.readableBytes());
             return null;
         }
-        LOGGER.info("length: {}", length);
 
-        // Serial Number (4 Bytes)
+        /* Extract Serial Number (4 Bytes) */
         int serialNumber = Integer.reverseBytes(buf.readInt());
-        LOGGER.info("serial number: {}", serialNumber);
+        LOGGER.info("Serial Number: {}", serialNumber);
         String id = String.valueOf(serialNumber);
         DeviceSession deviceSession = getDeviceSession(channel, remoteAddress, id);
         if (deviceSession == null) {
             return null;
         }
 
-        // Encrypted Data (Length - 6 Bytes)
-        int encryptedDataSize = length - 6;
-        byte[] encryptedData = new byte[encryptedDataSize];
-        buf.readBytes(encryptedData);
-        LOGGER.info("encrypted data: {}", encryptedData);
+        /* Extract Encrypted Payload (Length - 6 Bytes) */
+        int encryptedPayloadSize = length - 6;
+        byte[] encryptedPayload = new byte[encryptedPayloadSize];
+        buf.readBytes(encryptedPayload);
+        // LOGGER.info("Encrypted Payload: {}", encryptedPayload);
 
-        // CRC Checksum (2 Bytes)
+        /* Extract Expected CRC Checksum, MODBUS CRC (2 Bytes) */
         int receivedCRC = buf.readUnsignedShort();
-        LOGGER.info("received crc: {}", receivedCRC);
-        //TODO: check CRC
+        LOGGER.info("Received CRC: {}", receivedCRC);
+        int expectedCRC = receivedCRC;
+        if(receivedCRC != expectedCRC) {
+            LOGGER.info("Received CRC: {} != Expected CRC", receivedCRC, expectedCRC);
+            return null;
+        }
+        /* CRC check can be implemented here */
 
-        // End of Frame (EOF)
+        /* Extract End of Frame (EOF) */
         byte eof = buf.readByte();
-        LOGGER.info("eof: {}", eof);
         if (eof != (byte) 0x55) {
+            LOGGER.info("EOF: {} != 0x55", eof);
             return null;
         }
-        LOGGER.info("eof: {}", eof);
+        //*******************************Payload*******************************
+        // --- Prepare cipher ---
+        Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+        byte[] key = new byte[16];
+        byte[] iv = new byte[16];
+        for (int i = 0; i < 16; i++){
+            key[i] = (byte) i;
+            iv[i] = (byte) (i + 0x10);
+        }
+        SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+        //cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
 
-        //*******************************Packet*******************************
-        // Decrypted Data Packets
-        int decryptedSize = length - 6;
-        ByteBuf decryptedBuf = Unpooled.wrappedBuffer(encryptedData);
-        LOGGER.info("decrypted Size: {}", decryptedSize);
-        LOGGER.info("encrypted Data: {}", encryptedData);
-
-        // Start of Packet (1 Byte)
-        byte sop = decryptedBuf.readByte();
-        LOGGER.info("sop: {}", sop);
+        /* Start of Payload (1 Byte) */
+        byte[] decrypted = encryptedPayload;
+        byte sop = encryptedPayload[0];
         if (sop != (byte) 0xAB) {
+            // LOGGER.info("encrypted Payload: {}", encryptedPayload);
+            decrypted = cipher.doFinal(encryptedPayload);
+            // LOGGER.info("decrypted: {}", decrypted);
+            LOGGER.info("Decrypting payload .... ");
+        }
+
+        /* Decrypted Data Payload */
+        int decryptedSize = length - 6;
+        ByteBuf decryptedBuf = Unpooled.wrappedBuffer(decrypted);
+        sop = decryptedBuf.readByte();
+        if (sop != (byte) 0xAB) {
+            LOGGER.info("Failed to decrypt: SOP={} != 0xAB", sop);
             return null;
         }
 
-        // Data Count (1 Byte)
-        int dataCount = decryptedBuf.readByte();
-        LOGGER.info("dataCount: {}", dataCount);
+        /* Packet Count (1 Byte) */
+        int packetCount = decryptedBuf.readByte();
+        LOGGER.info("Payload decrypted successfully! Received {} Packets", packetCount);
 
-        // Data (Decrypted Size - 3 Byte)
-        int dataSize = decryptedSize - 3;
-        byte[] allData = new byte[dataSize];
-        decryptedBuf.readBytes(allData);
-        LOGGER.info("dataSize: {}", dataSize);
-        LOGGER.info("allData: {}", allData);
+        /* Combined Packets (Decrypted Size - 3 Byte) */
+        int packetsCombinedSize = decryptedSize - 3;
+        byte[] packetsCombined = new byte[packetsCombinedSize];
+        decryptedBuf.readBytes(packetsCombined);
+        // LOGGER.info("Packets Combined Size: {}", packetsCombinedSize);
+        // LOGGER.info("Packets Combined: {}", packetsCombined);
 
         // End of Packet (1 Byte)
         byte eop = decryptedBuf.readByte();
         if (eop != (byte) 0x57) {
+            LOGGER.info("ERROR: EOP: {} != 0x57", eop);
             return null;
         }
-        LOGGER.info("eop: {}", eop);
 
-        //*******************************Data*******************************
-        ByteBuf dataBuf = Unpooled.wrappedBuffer(allData);
-        // Read Data
-        for (int i = 0; i < dataCount; i++) {
+        //*******************************Packets*******************************
+        /* Read the combined packets into dataBuf for further processing */
+        ByteBuf dataBuf = Unpooled.wrappedBuffer(packetsCombined);
 
+        /* Read packets received from dataBuf one by one, packetCount times. */
+        for (int i = 0; i < packetCount; i++) {
+            //LOGGER.info("packet number: {}", i);
+
+            /* Set the device ID of the position packet,
+             * based on the previously processed Serial Number */
             Position position = new Position(getProtocolName());
             position.setDeviceId(deviceSession.getDeviceId());
 
+            /* If the data is shorter than expected, return. */
             if (dataBuf.readableBytes() < 4) {
+                LOGGER.info("ERROR: Data Shorter than 4 Bytes");
                 break;
             }
 
-            // Start of Data (1 Byte)
+            /* Extract the Start of Data (1 Byte) */
             byte sod = dataBuf.readByte();
             if (sod != (byte) 0xAF) {
                 for (int j = 1; j <= buf.readableBytes(); j++) {
@@ -150,364 +186,300 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                     break;
                 }
             }
-            LOGGER.info("sod: {}", sod);
+            /* Reaching this point, means the SOD has been found. */
 
-            // Length (1 Byte)
-            int dataLength = dataBuf.readUnsignedByte();
-            LOGGER.info("data Length: {}", dataLength);
-
-            // Type (1 Byte)
+            /* Extract the Type (1 Byte) */
             int dataType = dataBuf.readUnsignedByte();
-            LOGGER.info("data Type: {}", dataType);
+            //LOGGER.info("Data Type: {}", dataType);
+            if (dataType != 17 && dataType != 18) continue;
+            //LOGGER.info("Passed: {}", dataType);
 
-            // Data (Length Byte)
-            if (dataBuf.readableBytes() < dataLength + 1) {
+            /* Extract the Length (1 Byte) */
+            int dataLength = dataBuf.readUnsignedByte();
+
+            /* Extract the Data (Length Bytes) */
+            if (dataBuf.readableBytes() < dataLength) {
+                LOGGER.info("ERROR: Expected Data Length={} > Remaining Data Length={}", dataType, dataBuf.readableBytes());
                 break;
             }
 
+            /* Load dataLength bytes of dataBuf for processing,
+             * this is the data containing information based on the
+             * packet type. */
             byte[] data = new byte[dataLength];
             dataBuf.readBytes(data);
-            LOGGER.info("data: {}", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(data)).replaceAll("(.{2})", "$1 "));
+            // LOGGER.info("data: {}", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(data)).replaceAll("(.{2})", "$1 "));
 
-
-            // End of Data (1 Byte)
+            /* End of Data (1 Byte) */
             byte eod = dataBuf.readByte();
             if (eod != (byte) 0x5F) {
+                LOGGER.info("ERROR: EOD={} != 0x5F", eod);
                 break;
             }
-            LOGGER.info("eod: {}", eod);
 
-            if (dataType == (byte) 0x01) {
-                ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
+            LOGGER.info("Processing Packet: {}/{}, Type={}, Length={}", i+1, packetCount, dataType, dataLength);
 
-                // Alarm Code (1 Byte)
-                int alarmCode = wrappedData.readUnsignedByte();
-                LOGGER.info("alarmCode: {}", alarmCode);
-                findAlarm(alarmCode, position);
+            ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
 
-                // Charger Status (1 Byte)
-                int chargerStatus = wrappedData.readByte();
-                LOGGER.info("chargerStatus: {}", chargerStatus);
-                position.set(Position.KEY_CHARGE, chargerStatus);
+            /* Extract the Alarm Code (1 Byte) */
+            int alarmCode = wrappedData.readUnsignedByte();
+            findAlarm(alarmCode, position);
 
-                // Battery Voltage (2 Bytes)
-                int batteryVoltage = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
-                LOGGER.info("batteryVoltage: {}", batteryVoltage);
-                position.set(Position.KEY_BATTERY, batteryVoltage);
+            /* Flags P1 */
+            int flags1 = wrappedData.readByte();
 
-                // Wire Tamper (1 Byte)
-                int wireTamper = wrappedData.readByte();
-                LOGGER.info("wireTamper: {}", wireTamper);
-                position.set(Position.KEY_WIRE_TAMPER, 1);
+            /* Tech (2g, 3g, 4g, 5g, other) */
+            int tech = flags1 & 0b00000111;
+            switch (tech) {
+                case 0:
+                    position.set(Position.KEY_TECHNOLOGY, "-");
+                    break;
+                case 1:
+                    position.set(Position.KEY_TECHNOLOGY, "-");
+                    break;
+                case 2:
+                    position.set(Position.KEY_TECHNOLOGY, "2G");
+                    break;
+                case 3:
+                    position.set(Position.KEY_TECHNOLOGY, "3G");
+                    break;
+                case 4:
+                    position.set(Position.KEY_TECHNOLOGY, "4G");
+                    break;
+                case 5:
+                    position.set(Position.KEY_TECHNOLOGY, "5G");
+                    break;
+                default:
+                    position.set(Position.KEY_TECHNOLOGY, "-");
+                    break;
+            }
 
-                // Lock Status (1 Byte)
-                int lockStatus = wrappedData.readByte();
-                LOGGER.info("lockStatus: {}", lockStatus);
-                position.set(Position.KEY_LOCK, 1);
+            /* Extract flag one - bit four: Simcard slot in use */
+            boolean isSimTwo;
+            isSimTwo = (flags1 & 0b00001000) != 0;
+            int simSlot = 1;
+            if (isSimTwo) {simSlot = 2;}
+            position.set(Position.KEY_SIM_SLOT, simSlot);
 
-                // GSM Signal (1 Byte)
-                int gsmSignal = wrappedData.readByte();
-                LOGGER.info("gsmSignal: {}", gsmSignal);
-                position.set(Position.KEY_GSM, gsmSignal);
+            /* Extract flag one - bit five: Charge status */
+            boolean isCharging;
+            isCharging = (flags1 & 0b00010000) != 0;
+            position.set(Position.KEY_CHARGE, isCharging);
 
-                // Version (2 Bytes)
-                int version = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
-                LOGGER.info("version: {}", version);
-                position.set(Position.KEY_VERSION, version);
+            /* Extract flag one - bit six: GNSS fix status (0 = not fixed, 1 = fixed) */
+            boolean isFixed;
+            isFixed = (flags1 & 0b00100000) != 0;
+            position.setValid(isFixed);
 
-                // Humidity
-                int humidity = wrappedData.readByte();
-                LOGGER.info("humidity: {}", humidity);
-                position.set(Position.KEY_HUMIDITY, humidity);
+            /* Extract flag one - bit seven: GNSS stop status (0 = moving, 1 = stopped) */
+            boolean isStop;
+            isStop = (flags1 & 0b01000000) != 0;
+            position.set(Position.KEY_MOTION, !isStop);
 
-                // Temperature
-                int temperature = wrappedData.readByte();
-                LOGGER.info("temperature: {}", temperature);
-                position.set(Position.KEY_DEVICE_TEMP, temperature);
+            /* Extract flag one - bit eight: LAC/CID Validity (0 = Not Valid, 1 = Valid) */
+            boolean lacCidValidity;
+            lacCidValidity = (flags1 & 0b10000000) != 0;
 
-                // Unix Time (4 Bytes)
-                long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                Date date = new Date(unixTime * 1000L);
-                LOGGER.info("date: {}", date);
-                position.setTime(date);
 
-                // Latitude (4 Bytes)
-                long lat = Integer.reverseBytes(wrappedData.readInt());
-                double latitude = (double) lat / 1000000;
-                LOGGER.info("latitude: {}", latitude);
-                position.setLatitude(latitude);
+            int flags2 = wrappedData.readByte();
 
-                // Longitude (4 Bytes)
-                long lon = Integer.reverseBytes(wrappedData.readInt());
-                double longitude = (double) lon / 1000000;
-                LOGGER.info("longitude: {}", longitude);
-                position.setLongitude(longitude);
+            /* Extract flag two - bit one: Unlock Status (0 = Not Allowed, 1 = Allowed) */
+            boolean isUnlockAllowed;
+            isUnlockAllowed = (flags2 & 0b00000001) != 0;
+            position.set(Position.KEY_LOCK, isUnlockAllowed);
 
-                // Bearing (2 Bytes)
-                int bearing = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
-                LOGGER.info("bearing: {}", bearing);
-                position.setCourse(bearing);
+            /* Extract flag two - bit two: Rope Status (0 = Open, 1 = Closed) */
+            boolean isRopeClosed;
+            isRopeClosed = (flags2 & 0b00000010) != 0;
+            position.set(Position.KEY_WIRE_TAMPER, isRopeClosed);
 
-                // Speed (1 Byte)
-                int speed = wrappedData.readByte();
-                LOGGER.info("speed: {}", speed);
-                position.setSpeed(speed * 0.54);
+            /* Extract flag two - bit three: Mechanical Status (0 = Open, 1 = Closed) */
+            boolean isMechanicClosed;
+            isMechanicClosed = (flags2 & 0b00000100) != 0;
+            position.set(Position.KEY_MECHANIC_CLOSE, isMechanicClosed);
 
-                // Sat (1 Byte)
-                int sat = wrappedData.readByte();
-                LOGGER.info("sat: {}", sat);
-                position.set(Position.KEY_SATELLITES, sat);
+            /* Extract flag two - bit four: Coil Status (0 = Deactive, 1 = Active) */
+            boolean isCoilOpen;
+            isCoilOpen = (flags2 & 0b00001000) != 0;
+            position.set(Position.KEY_COIL_OPEN, isCoilOpen);
 
-                // Position Dilution Of Precision (2 Bytes)
-                double pdop = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
-                LOGGER.info("pdop: {}", pdop);
-                if (pdop < 3) {
-                    position.setValid(true);
-                }
+            /* Extract flag two - bit five: Extended packet status (1 = extended packet) */
+            boolean isExtended;
+            isExtended = (flags2 & 0b00010000) != 0;
 
-                // Stop (1 Byte)
-                int stop = wrappedData.readByte();
-                LOGGER.info("stop: {}", stop);
-                position.set(Position.KEY_MOTION, stop == 0);
+            /* Extract the GSM Signal (1 Byte) */
+            int gsmSignal = wrappedData.readByte();
+            position.set(Position.KEY_GSM, gsmSignal);
 
-            } else {
-                ByteBuf wrappedData = Unpooled.wrappedBuffer(data);
+            /* Extract the RESERVE Bytes (2 Byte) */
+            int reserve = (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF);
 
-                // Alarm Code (1 Byte)
-                int alarmCode = wrappedData.readUnsignedByte();
-                LOGGER.info("alarmCode: {}", alarmCode);
-                findAlarm(alarmCode, position);
+            /* Extract the Battery Voltage (2 Byte) */
+            double batteryVoltage = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 1000;
+            position.set(Position.KEY_BATTERY, batteryVoltage);
 
-                // Charger Status (1 Byte)
-                int chargerStatus = wrappedData.readByte();
-                LOGGER.info("chargerStatus: {}", chargerStatus);
-                position.set(Position.KEY_CHARGE, chargerStatus);
+            /* Extract the Humidity (1 Byte) */
+            int humidity = wrappedData.readByte();
+            position.set(Position.KEY_HUMIDITY, humidity);
 
-                // Battery Voltage (2 Bytes)
-                double batteryVoltage = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 1000;
-                LOGGER.info("batteryVoltage: {}", batteryVoltage);
-                position.set(Position.KEY_BATTERY, batteryVoltage);
+            /* Extract the Temperature (1 Byte) */
+            int temperature = wrappedData.readByte();
+            position.set(Position.KEY_DEVICE_TEMP, temperature);
 
-                // Version (2 Bytes)
-                double version = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
-                LOGGER.info("version: {}", version);
-                position.set(Position.KEY_VERSION, version);
+            /* Extract the LAC (2 Bytes) */
+            long lac = Short.reverseBytes(wrappedData.readShort());
+            position.set(Position.KEY_LAC, lac);
 
-                // Wire Tamper (1 Byte)
-                int wireTamper = wrappedData.readByte();
-                LOGGER.info("wireTamper: {}", wireTamper);
-                position.set(Position.KEY_WIRE_TAMPER, 1);
+            /* Extract the CID (2 Bytes) */
+            long cid = Short.reverseBytes(wrappedData.readShort());
+            position.set(Position.KEY_CID, cid);
 
-                // Lock Status (1 Byte)
-                int lockStatus = wrappedData.readByte();
-                LOGGER.info("lockStatus: {}", lockStatus);
-                position.set(Position.KEY_LOCK, 1);
+            /* Extract the Geofences bitwise flags (2 Byte) */
+            long geofences = Short.reverseBytes(wrappedData.readShort());
+            position.set(Position.KEY_GEOFENCES, geofences);
 
-                // GSM Signal (1 Byte)
-                int gsmSignal = wrappedData.readByte();
-                LOGGER.info("gsmSignal: {}", gsmSignal);
-                position.set(Position.KEY_GSM, gsmSignal);
+            /* Extract the Unix Time (4 Bytes) */
+            long unixTime = Integer.reverseBytes(wrappedData.readInt());
+            Date date = new Date(unixTime * 1000L);
+            position.setDeviceTime(date);
 
-                // Humidity
-                int humidity = wrappedData.readByte();
-                LOGGER.info("humidity: {}", humidity);
-                position.set(Position.KEY_HUMIDITY, humidity);
+            LOGGER.info("--AlarmCode={}|Network={}G|SimSlot={}|Charging={}|GNSSFix={}|Motion={}|CIDValid={}|UnlockAllowed={}|",
+                    alarmCode, tech, simSlot, isCharging, isFixed, !isStop, lacCidValidity, isUnlockAllowed);
 
-                // Temperature
-                int temperature = wrappedData.readByte();
-                LOGGER.info("temperature: {}", temperature);
-                position.set(Position.KEY_DEVICE_TEMP, temperature);
+            LOGGER.info("--RopeClosed={}|MechanicClosed={}|CoilActive={}|GSM Signal={}%|Battery={}V|Humidity={}%|Temperature={}C|",
+                    isRopeClosed, isMechanicClosed, isCoilOpen, gsmSignal, batteryVoltage, humidity, temperature);
 
-                // Flags
-                boolean isFixed = false;
-                boolean isStop = false;
-                boolean lacCidValidity = false;
+            LOGGER.info("--LAC={}|CID={}|Geofences={}|TimeStamp={}|Date&Time={}|",
+                    lac, cid, geofences, unixTime, date);
 
-                int flags = wrappedData.readByte();
-                LOGGER.info("flags: {}", flags);
+            position.set(Position.KEY_ALARM, alarmCode);
+            switch (dataType) {
+                case (byte) 0x11: {
+                    /* Packet 0x11 means the device is sending position via GNSS */
 
-                if ((flags & 1) == 1) {
-                    isFixed = true;
-                }
-                if (((flags >> 1) & 1) == 1) {
-                    isStop = true;
-                }
-                if (((flags >> 2) & 1) == 1) {
-                    lacCidValidity = true;
-                }
-                int tech = (flags >> 3) & 0b111;
-                switch (tech) {
-                    case 0:
-                        position.set(Position.KEY_TECHNOLOGY, "unknown");
-                        break;
-                    case 1:
-                        position.set(Position.KEY_TECHNOLOGY, "2G");
-                        break;
-                    case 2:
-                        position.set(Position.KEY_TECHNOLOGY, "3G");
-                        break;
-                    case 3:
-                        position.set(Position.KEY_TECHNOLOGY, "4G");
-                        break;
-                    case 4:
-                        position.set(Position.KEY_TECHNOLOGY, "5G");
-                        break;
-                    default:
-                        position.set(Position.KEY_TECHNOLOGY, "other");
-                        break;
-                }
+                    /* Extract the Since Last Fix, provided in seconds. (4 Bytes) */
+                    long sinceTime = Integer.reverseBytes(wrappedData.readInt());
+                    Date since = new Date(sinceTime * 1000L);
+                    position.setFixTime(since);
 
-                LOGGER.info("isStop: {}", isStop);
-                LOGGER.info("motion: {}", !isStop);
-                position.set(Position.KEY_MOTION, !isStop);
-                switch (dataType) {
-                    case (byte) 0x11: {
-                        // LAC (4 Bytes)
-                        long lac = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("lac: {}", lac);
-                        position.set(Position.KEY_LAC, lac);
-
-                        // CID (4 Bytes)
-                        long cid = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("cid: {}", cid);
-                        position.set(Position.KEY_CID, cid);
-
-                        // Unix Time (4 Bytes)
-                        long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                        Date date = new Date(unixTime * 1000L);
-                        LOGGER.info("date: {}", date);
-                        position.setDeviceTime(date);
-
-                        // Unix Time (4 Bytes)
-                        long sinceTime = Integer.reverseBytes(wrappedData.readInt());
-                        Date since = new Date(sinceTime * 1000L);
-                        LOGGER.info("since: {}", since);
-                        position.setFixTime(since);
-
-                        // Latitude (4 Bytes)
-                        long lat = Integer.reverseBytes(wrappedData.readInt());
-                        double latitude = (double) lat / 1000000;
-                        LOGGER.info("latitude: {}", latitude);
+                    /* Extract the Latitude, the value must be divided by 100000 (4 Bytes) */
+                    long lat = Integer.reverseBytes(wrappedData.readInt());
+                    double latitude = (double) lat / 1000000;
+                    if (latitude <= 90 && latitude >=-90) {
                         position.setLatitude(latitude);
+                    }
 
-                        // Longitude (4 Bytes)
-                        long lon = Integer.reverseBytes(wrappedData.readInt());
-                        double longitude = (double) lon / 1000000;
-                        LOGGER.info("longitude: {}", longitude);
+                    /* Extract the Longitude, the value must be divided by 100000 (4 Bytes) */
+                    long lon = Integer.reverseBytes(wrappedData.readInt());
+                    double longitude = (double) lon / 1000000;
+                    if (longitude <= 90 && longitude >= -90) {
                         position.setLongitude(longitude);
+                    }
 
-                        // Bearing (2 Bytes)
-                        int bearing = Short.reverseBytes(wrappedData.readShort());
-                        LOGGER.info("bearing: {}", bearing);
+                    /* Extract the Bearing (2 Bytes) */
+                    int bearing = Short.reverseBytes(wrappedData.readShort());
+                    if (bearing < 360 && bearing >= 0) {
                         position.setCourse(bearing);
-
-                        // Speed (1 Byte)
-                        int speed = wrappedData.readByte();
-                        LOGGER.info("speed: {}", speed);
-                        position.setSpeed(speed * 0.54);
-
-                        // Sat (1 Byte)
-                        int sat = wrappedData.readByte();
-                        LOGGER.info("sat: {}", sat);
-                        position.set(Position.KEY_SATELLITES, sat);
-
-                        // Position Dilution Of Precision (2 Bytes)
-                        double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
-                        LOGGER.info("pdop: {}", pdop);
-                        if (pdop < 3) {
-                            position.setValid(true);
-                        }
                     }
 
-                    case (byte) 0x02: {
-                        // LAC (4 Bytes)
-                        long lac = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("lac: {}", lac);
-                        position.set(Position.KEY_LAC, lac);
+                    /* Extract the Position Dilution Of Precision (2 Bytes) */
+                    double PDOP = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
+                    position.set(Position.KEY_PDOP, PDOP);
+                    /*
+                     * I moved the set valid to gps fix flag. */
+                    // if (pdop < 3) {
+                    //     position.setValid(true);
+                    // }
 
-                        // CID (4 Bytes)
-                        long cid = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("cid: {}", cid);
-                        position.set(Position.KEY_CID, cid);
+                    /* Extract the number of satellites connected (1 Byte) */
+                    int sat = wrappedData.readByte();
+                    position.set(Position.KEY_SATELLITES, sat);
 
-                        // Unix Time (4 Bytes)
-                        long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                        Date date = new Date(unixTime * 1000L);
-                        LOGGER.info("date: {}", date);
-                        position.setDeviceTime(date);
+                    /* Extract the Speed in KM/H (1 Byte) */
+                    int speed = wrappedData.readByte();
+                    position.setSpeed(speed * 0.54);
 
-                        // Flags (4 Bytes)
-                        long flag = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("flag: {}", flag);
+                    LOGGER.info("--SinceLastFix={}s|Latitude={}|Longitude={}|Course={}|PDOP={}|Satellites={}|Speed={}km/h|",
+                            sinceTime, latitude, longitude, bearing, PDOP, sat, speed);
 
-                    }
+                    break;
+                }
+                case (byte) 0x12: {
+                    /* Packet 0x12 means the device is sending position via Cell Tower Information */
 
-                    case (byte) 0x03: {
-                        // LAC (4 Bytes)
-                        long lac = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("lac: {}", lac);
-                        position.set(Position.KEY_LAC, lac);
+                    /* Extract the Since Last Fix, provided in seconds. (4 Bytes) */
+                    long sinceTime = Integer.reverseBytes(wrappedData.readInt());
+                    Date since = new Date(sinceTime * 1000L);
+                    position.setFixTime(since);
 
-                        // CID (4 Bytes)
-                        long cid = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("cid: {}", cid);
-                        position.set(Position.KEY_CID, cid);
+                    int bts1Flag = wrappedData.readByte();
+                    int bts2Flag = wrappedData.readByte();
+                    int bts3Flag = wrappedData.readByte();
+                    int bts4Flag = wrappedData.readByte();
 
-                        // Unix Time (4 Bytes)
-                        long unixTime = Integer.reverseBytes(wrappedData.readInt());
-                        Date date = new Date(unixTime * 1000L);
-                        LOGGER.info("date: {}", date);
-                        position.setDeviceTime(date);
+                    /* Extract the first neighbour LAC (2 Bytes) */
+                    long lac1 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_FLAG_1, bts1Flag);
+                    position.set(Position.KEY_LAC_1, lac1);
 
-                        // Unix Time (4 Bytes)
-                        long sinceTime = Integer.reverseBytes(wrappedData.readInt());
-                        Date since = new Date(sinceTime * 1000L);
-                        LOGGER.info("since: {}", since);
-                        position.setFixTime(since);
+                    /* Extract the neighbour CID (2 Bytes) */
+                    long cid1 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_CID_1, cid1);
 
-                        // Latitude (4 Bytes)
-                        long lat = Integer.reverseBytes(wrappedData.readInt());
-                        double latitude = (double) lat / 1000000;
-                        LOGGER.info("latitude: {}", latitude);
-                        position.setLatitude(latitude);
+                    /* Extract the first neighbour LAC (2 Bytes) */
+                    long lac2 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_FLAG_2, bts2Flag);
+                    position.set(Position.KEY_LAC_2, lac2);
 
-                        // Longitude (4 Bytes)
-                        long lon = Integer.reverseBytes(wrappedData.readInt());
-                        double longitude = (double) lon / 1000000;
-                        LOGGER.info("longitude: {}", longitude);
-                        position.setLongitude(longitude);
+                    /* Extract the neighbour CID (2 Bytes) */
+                    long cid2 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_CID_2, cid2);
 
-                        // Bearing (2 Bytes)
-                        int bearing = Short.reverseBytes(wrappedData.readShort());
-                        LOGGER.info("bearing: {}", bearing);
-                        position.setCourse(bearing);
+                    /* Extract the first neighbour LAC (2 Bytes) */
+                    long lac3 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_FLAG_3, bts3Flag);
+                    position.set(Position.KEY_LAC_3, lac3);
 
-                        // Speed (1 Byte)
-                        int speed = wrappedData.readByte();
-                        LOGGER.info("speed: {}", speed);
-                        position.setSpeed(speed * 0.54);
+                    /* Extract the neighbour CID (2 Bytes) */
+                    long cid3 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_CID_3, cid3);
 
-                        // Sat (1 Byte)
-                        int sat = wrappedData.readByte();
-                        LOGGER.info("sat: {}", sat);
-                        position.set(Position.KEY_SATELLITES, sat);
+                    /* Extract the first neighbour LAC (2 Bytes) */
+                    long lac4 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_FLAG_4, bts4Flag);
+                    position.set(Position.KEY_LAC_4, lac4);
 
-                        // Position Dilution Of Precision (2 Bytes)
-                        double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
-                        LOGGER.info("pdop: {}", pdop);
-                        if (pdop < 3) {
-                            position.setValid(true);
-                        }
+                    /* Extract the neighbour CID (2 Bytes) */
+                    long cid4 = Short.reverseBytes(wrappedData.readShort());
+                    position.set(Position.KEY_CID_4, cid4);
 
-                        // Illegal RFID Number
-                        long rfid = Integer.reverseBytes(wrappedData.readInt());
-                        LOGGER.info("rfid: {}", rfid);
-                        position.set(Position.KEY_RFID, rfid);
-                    }
+                    LOGGER.info("--SinceLastFix={}s|FLAGS:1={}|2={}|3={}|4={}|LAC-CID-: 1={}-{}|2={}-{}|3={}-{}|4={}-{}|",
+                            sinceTime, bts1Flag, bts2Flag, bts3Flag, bts4Flag, lac1, cid1, lac2, cid2, lac3, cid3, lac4, cid4);
+
+                    break;
+                }
+                default: {
+                    break;
                 }
             }
 
-            // Position
+
+
+            /* Check if the packet is extended */
+            if(isExtended) {
+                int extendedType = wrappedData.readByte();
+                if (extendedType == (byte) 0x01) {/* Illegal RFID Number */
+                    long rfid = Integer.reverseBytes(wrappedData.readInt());
+                    position.set(Position.KEY_RFID, rfid);
+                    LOGGER.info("--ExtendedPacket!! ExtendedType={}|RFID={}",
+                            extendedType, rfid);
+                } else {
+                    LOGGER.info("--ExtendedPacket!! ExtendedType={}|UNKNOWN!",
+                            extendedType);
+                }
+            }
+
+            /* Save the gathered position data */
             positions.add(position);
         }
 

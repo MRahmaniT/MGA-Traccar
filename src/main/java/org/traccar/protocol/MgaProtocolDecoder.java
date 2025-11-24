@@ -12,7 +12,16 @@ import org.traccar.session.DeviceSession;
 import org.traccar.Protocol;
 import org.traccar.model.Position;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 import java.net.SocketAddress;
+import java.security.InvalidAlgorithmParameterException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,7 +42,7 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         return decodeBinary(buf, channel, remoteAddress);
     }
 
-    private List<Position> decodeBinary(ByteBuf buf, Channel channel, SocketAddress remoteAddress) {
+    private List<Position> decodeBinary(ByteBuf buf, Channel channel, SocketAddress remoteAddress) throws NoSuchPaddingException, NoSuchAlgorithmException, IllegalBlockSizeException, BadPaddingException, InvalidAlgorithmParameterException, InvalidKeyException {
 
         List<Position> positions = new LinkedList<>();
 
@@ -94,16 +103,35 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
         LOGGER.info("eof: {}", eof);
 
         //*******************************Packet*******************************
-        // Decrypted Data Packets
-        int decryptedSize = length - 6;
-        ByteBuf decryptedBuf = Unpooled.wrappedBuffer(encryptedData);
-        LOGGER.info("decrypted Size: {}", decryptedSize);
-        LOGGER.info("encrypted Data: {}", encryptedData);
+        // --- Prepare cipher ---
+        Cipher cipher = Cipher.getInstance("AES/CTR/NoPadding");
+        byte[] key = new byte[16];
+        byte[] iv = new byte[16];
+        for (int i = 0; i < 16; i++){
+            key[i] = (byte) i;
+            iv[i] = (byte) (i + 0x10);
+        }
+        SecretKeySpec keySpec = new SecretKeySpec(key, "AES");
+        IvParameterSpec ivSpec = new IvParameterSpec(iv);
+        cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
+        //cipher.init(Cipher.ENCRYPT_MODE, keySpec, ivSpec);
 
         // Start of Packet (1 Byte)
-        byte sop = decryptedBuf.readByte();
+        byte[] decrypted = encryptedData;
+        byte sop = encryptedData[0];
+        if (sop != (byte) 0xAB) {
+            LOGGER.info("encrypted Data: {}", encryptedData);
+            decrypted = cipher.doFinal(encryptedData);
+            LOGGER.info("decrypted: {}", decrypted);
+        }
+
+        // Decrypted Data Packets
+        int decryptedSize = length - 6;
+        ByteBuf decryptedBuf = Unpooled.wrappedBuffer(decrypted);
+        sop = decryptedBuf.readByte();
         LOGGER.info("sop: {}", sop);
         if (sop != (byte) 0xAB) {
+            LOGGER.info("failed to decrypt, sop : {}", sop);
             return null;
         }
 
@@ -169,7 +197,6 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
             dataBuf.readBytes(data);
             LOGGER.info("data: {}", ByteBufUtil.hexDump(Unpooled.wrappedBuffer(data)).replaceAll("(.{2})", "$1 "));
 
-
             // End of Data (1 Byte)
             byte eod = dataBuf.readByte();
             if (eod != (byte) 0x5F) {
@@ -210,7 +237,7 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 LOGGER.info("gsmSignal: {}", gsmSignal);
                 position.set(Position.KEY_GSM, gsmSignal);
 
-                // Version (2 Bytes)
+                // CRC (2 Bytes)
                 int version = Short.reverseBytes(wrappedData.readShort()) & 0xFFFF;
                 LOGGER.info("version: {}", version);
                 position.set(Position.KEY_VERSION, version);
@@ -287,32 +314,38 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 switch (tech) {
                     case 0:
                         position.set(Position.KEY_TECHNOLOGY, "unregistered");
+                        LOGGER.info("Tceh: {}", "0");
                         break;
                     case 1:
                         position.set(Position.KEY_TECHNOLOGY, "unknown");
+                        LOGGER.info("Tceh: {}", "1");
                         break;
                     case 2:
                         position.set(Position.KEY_TECHNOLOGY, "2G");
+                        LOGGER.info("Tceh: {}", "2");
                         break;
                     case 3:
                         position.set(Position.KEY_TECHNOLOGY, "3G");
+                        LOGGER.info("Tceh: {}", "3");
                         break;
                     case 4:
                         position.set(Position.KEY_TECHNOLOGY, "4G");
+                        LOGGER.info("Tceh: {}", "4");
                         break;
                     case 5:
                         position.set(Position.KEY_TECHNOLOGY, "5G");
+                        LOGGER.info("Tceh: {}", "5");
                         break;
                     default:
                         position.set(Position.KEY_TECHNOLOGY, "other");
+                        LOGGER.info("Tceh: {}", "d");
                         break;
                 }
-                LOGGER.info("Tceh: {}", Position.KEY_TECHNOLOGY);
 
-                // Res
-                boolean res;
-                res = (flags1 & 0b00001000) != 0;
-                LOGGER.info("Res: {}", res);
+                // Is Sim Two
+                boolean isSimTwo;
+                isSimTwo = (flags1 & 0b00001000) != 0;
+                LOGGER.info("isSimTwo: {}", isSimTwo);
 
                 // Charger Status
                 boolean isCharging;
@@ -338,29 +371,29 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
 
                 // Flags P2
                 int flags2 = wrappedData.readByte();
-                LOGGER.info("flags: {}", flags1);
+                LOGGER.info("flags: {}", flags2);
 
                 // Is Unlock Allowed
                 boolean isUnlockAllowed;
-                isUnlockAllowed = (flags1 & 0b00000001) != 0;
+                isUnlockAllowed = (flags2 & 0b00000001) != 0;
                 position.set(Position.KEY_LOCK, isUnlockAllowed);
                 LOGGER.info("isUnlockAllowed: {}", isUnlockAllowed);
 
                 // IS Rope Closed
                 boolean isRopeClosed;
-                isRopeClosed = (flags1 & 0b00000010) != 0;
+                isRopeClosed = (flags2 & 0b00000010) != 0;
                 position.set(Position.KEY_WIRE_TAMPER, isRopeClosed);
                 LOGGER.info("isRopeClose: {}", isRopeClosed);
 
                 // IS Mechanic Closed
                 boolean isMechanicClosed;
-                isMechanicClosed = (flags1 & 0b00000100) != 0;
+                isMechanicClosed = (flags2 & 0b00000100) != 0;
                 //position.set(Position.KEY_WIRE_TAMPER, isMechanicClosed);
                 LOGGER.info("isMechanicClosed: {}", isMechanicClosed);
 
                 // Is Coil Open
                 boolean isCoilOpen;
-                isCoilOpen = (flags1 & 0b00001000) != 0;
+                isCoilOpen = (flags2 & 0b00001000) != 0;
                 //position.set(Position.KEY_WIRE_TAMPER, isMechanicClosed);
                 LOGGER.info("isCoilOpen: {}", isCoilOpen);
 
@@ -369,10 +402,10 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                 position.set(Position.KEY_GSM, gsmSignal);
                 LOGGER.info("gsmSignal: {}", gsmSignal);
 
-                // Version (2 Bytes) --> CRC
-                double version = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 100;
-                position.set(Position.KEY_VERSION, version);
-                LOGGER.info("version: {}", version);
+                // CRC (2 Bytes)
+                int CRC = (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF);
+                position.set(Position.KEY_VERSION, CRC);
+                LOGGER.info("CRC: {}", CRC);
 
                 // Battery Voltage (2 Bytes)
                 double batteryVoltage = (double) (Short.reverseBytes(wrappedData.readShort()) & 0xFFFF) / 1000;
@@ -407,7 +440,7 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                         LOGGER.info("date: {}", date);
                         position.setDeviceTime(date);
 
-                        // Unix Time (4 Bytes)
+                        // Since Time (4 Bytes)
                         long sinceTime = Integer.reverseBytes(wrappedData.readInt());
                         Date since = new Date(sinceTime * 1000L);
                         LOGGER.info("since: {}", since);
@@ -417,18 +450,24 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                         long lat = Integer.reverseBytes(wrappedData.readInt());
                         double latitude = (double) lat / 1000000;
                         LOGGER.info("latitude: {}", latitude);
-                        position.setLatitude(latitude);
+                        if (latitude <= 90 && latitude >=-90) {
+                            position.setLatitude(latitude);
+                        }
 
                         // Longitude (4 Bytes)
                         long lon = Integer.reverseBytes(wrappedData.readInt());
                         double longitude = (double) lon / 1000000;
                         LOGGER.info("longitude: {}", longitude);
-                        position.setLongitude(longitude);
+                        if (longitude <= 90 && longitude >= -90) {
+                            position.setLongitude(longitude);
+                        }
 
                         // Bearing (2 Bytes)
                         int bearing = Short.reverseBytes(wrappedData.readShort());
                         LOGGER.info("bearing: {}", bearing);
-                        position.setCourse(bearing);
+                        if (bearing < 360 && bearing >= 0) {
+                            position.setCourse(bearing);
+                        }
 
                         // Position Dilution Of Precision (2 Bytes)
                         double pdop = (double) (Short.reverseBytes(wrappedData.readShort())) / 100;
@@ -446,8 +485,9 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                         int speed = wrappedData.readByte();
                         LOGGER.info("speed: {}", speed);
                         position.setSpeed(speed * 0.54);
-                    }
 
+                        break;
+                    }
                     case (byte) 0x02: {
                         // LAC (4 Bytes)
                         long lac = Integer.reverseBytes(wrappedData.readInt());
@@ -469,8 +509,8 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                         long flag = Integer.reverseBytes(wrappedData.readInt());
                         LOGGER.info("flag: {}", flag);
 
+                        break;
                     }
-
                     case (byte) 0x03: {
                         // LAC (4 Bytes)
                         long lac = Integer.reverseBytes(wrappedData.readInt());
@@ -532,6 +572,8 @@ public class MgaProtocolDecoder extends BaseProtocolDecoder {
                         long rfid = Integer.reverseBytes(wrappedData.readInt());
                         LOGGER.info("rfid: {}", rfid);
                         position.set(Position.KEY_RFID, rfid);
+
+                        break;
                     }
                 }
             }

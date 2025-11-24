@@ -4,9 +4,20 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="fd51dd83-9e5f-4c75-af5f-603909b46fec" name="Changes" comment="final">
+    <list default="true" id="fd51dd83-9e5f-4c75-af5f-603909b46fec" name="Changes" comment="new type">
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/executionHistory/executionHistory.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/fileHashes.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/resourceHashesCache.bin" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/9.1.0/fileHashes/resourceHashesCache.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" beforeDir="false" afterPath="$PROJECT_DIR$/.gradle/buildOutputCleanup/buildOutputCleanup.lock" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/classes/java/main/org/traccar/protocol/MgaProtocolDecoder.class" beforeDir="false" afterPath="$PROJECT_DIR$/build/classes/java/main/org/traccar/protocol/MgaProtocolDecoder.class" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/build/tmp/compileJava/previous-compilation-data.bin" beforeDir="false" afterPath="$PROJECT_DIR$/build/tmp/compileJava/previous-compilation-data.bin" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main/java/org/traccar/protocol/MgaFrameDecoder.java" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main/java/org/traccar/protocol/MgaProtocolDecoder.java" beforeDir="false" afterPath="$PROJECT_DIR$/src/main/java/org/traccar/protocol/MgaProtocolDecoder.java" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/database.mv.db" beforeDir="false" afterPath="$PROJECT_DIR$/target/database.mv.db" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/target/tracker-server.jar" beforeDir="false" afterPath="$PROJECT_DIR$/target/tracker-server.jar" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -56,17 +67,17 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Gradle.Download Sources.executor": "Run",
-    "Gradle.traccar [:org.traccar.Main.main()].executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
-    "git-widget-placeholder": "target",
-    "kotlin-language-version-configured": "true",
-    "last_opened_file_path": "/Users/mohammad/Work_MGA/traccar"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Gradle.Download Sources.executor&quot;: &quot;Run&quot;,
+    &quot;Gradle.traccar [:org.traccar.Main.main()].executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;target&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/mohammad/Work_MGA/traccar&quot;
   }
-}]]></component>
+}</component>
   <component name="RunManager">
     <configuration default="true" type="JetRunConfigurationType">
       <method v="2">
@@ -190,7 +201,15 @@
       <option name="project" value="LOCAL" />
       <updated>1762665210324</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="new type">
+      <option name="closed" value="true" />
+      <created>1762671981882</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1762671981882</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="Vcs.Log.Tabs.Properties">
@@ -211,6 +230,7 @@
     <MESSAGE value="Semi Final Version But Not Debugged" />
     <MESSAGE value="add alarm from .go" />
     <MESSAGE value="final" />
-    <option name="LAST_COMMIT_MESSAGE" value="final" />
+    <MESSAGE value="new type" />
+    <option name="LAST_COMMIT_MESSAGE" value="new type" />
   </component>
 </project>

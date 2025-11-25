@@ -2,7 +2,6 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/https:/github.com/MRahmaniT/MGA-Traccar_New_Protocol.git" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/traccar-web" vcs="Git" />
   </component>
 </project>
